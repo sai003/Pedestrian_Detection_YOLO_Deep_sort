@@ -80,8 +80,8 @@ def start_detecting():
     labelsPath = "class.names"
     LABELS = open(labelsPath).read().strip().split("\n")
     
-    weights_path = "./models/yolov4.weights"
-    config_path = "./models/yolov4.cfg"
+    weights_path = "./models/yolov4-tiny.weights"
+    config_path = "./models/yolov4-tiny.cfg"
     
     model = cv2.dnn.readNetFromDarknet(config_path, weights_path)
     '''
