@@ -117,10 +117,12 @@ def start_detecting():
         
         image = cv2.imread(INPUT_IMAGES_FOLDER+jpg_file_name)
         
+        image = cv2.imread(INPUT_IMAGES_FOLDER+jpg_file_name)
+            
         image = imutils.resize(image, width=1200)
         boxs, confidences, centroid = pedestrian_detection(image, model, layer_name,
-		personidz=LABELS.index("person"))
-        
+    	personidz=LABELS.index("person"))
+            
         features = encoder(image,boxs)
         detections = [Detection(bbox, 1.0, feature) for bbox, feature in zip(boxs, features)]
         
@@ -128,11 +130,11 @@ def start_detecting():
         scores = np.array([d.confidence for d in detections])
         indices = preprocessing.non_max_suppression(boxes, nms_max_overlap, scores)
         detections = [detections[i] for i in indices]
-
-        
+    
+            
         tracker.predict()
         tracker.update(detections)
-        
+            
         i = int(0)
         indexIDs = []
         c = []
@@ -163,7 +165,7 @@ def start_detecting():
             #b1 = str(bbox[1])#.split('.')[0] + '.' + str(bbox[1]).split('.')[0][:1]
             #b2 = str(bbox[2]-bbox[0])#.split('.')[0] + '.' + str(bbox[3]).split('.')[0][:1]
             #b3 = str(bbox[3]-bbox[1])
-
+    
             #list_file.write(str(b0) + ','+str(b1) + ','+str(b2) + ','+str(b3))
             #print(str(track.track_id))
             #list_file.write('\n')
@@ -185,22 +187,21 @@ def start_detecting():
                 new_individuals[track.track_id] -= 1
             # cv.arrowedLine(img, pt1, pt2, color, thickness=1, lineType=8, shift=0, tipLength=0.1)
             """Task 3.3"""
-
             i += 1
             #bbox_center_point(x,y)
             center = (int(((bbox[0])+(bbox[2]))/2),int(((bbox[1])+(bbox[3]))/2))
             #track_id[center]
-
+    
             paths_list[track.track_id].append(center)
-
+    
             thickness = 1
             #center point
-            cv2.circle(image,  (center), 1, color, thickness)
-            
+            cv2.circle(image, (center), 1, color, thickness)
+                
             for j in range(1, len(paths_list[track.track_id])):
                 if paths_list[track.track_id][j - 1] is None or paths_list[track.track_id][j] is None:
                    continue
-                thickness = int(np.sqrt(64 / float(j + 1)) * 2)
+                   thickness = int(np.sqrt(64 / float(j + 1)) * 2)
                 cv2.line(image,(paths_list[track.track_id][j-1]), (paths_list[track.track_id][j]),(color),thickness)
                
             '''
@@ -214,13 +215,13 @@ def start_detecting():
         '''
         for i in range(len(boxs)):
             cv2.rectangle(image, (boxs[i][0],boxs[i][1]), (boxs[i][0]+boxs[i][2],boxs[i][1]+boxs[i][3]), (0, 255, 0), 2)
-    
         
+            
         #print(centroids)
         
         cv2.putText(image, F"Count: {len(boxs)}", (530, 30), font, 1, color, 2) 
         '''
-        
+            
         count = len(set(counter))
         cv2.putText(image, "Unique Pedestrian Counter: "+str(count),(int(20), int(120)),0, 5e-3 * 200, (0,255,0),2)
         cv2.putText(image, "Current Pedestrian Counter: "+str(i),(int(20), int(80)),0, 5e-3 * 200, (0,255,0),2)
@@ -253,7 +254,10 @@ def start_detecting():
         if person_frame_tracker[p_ids][-1][0] == last_jpg_file: to_delete.append(p_ids)
     for p_ids in to_delete:
         del person_frame_tracker[p_ids]
-        
+    
+    #print("Final length:", len(person_frame_tracker))
+    ################ CHECK ONLY CONTINUOUS LAST FRAMES ################
+    
     frame_coordinates = dict()
     for p_ids in person_frame_tracker:
         for file, coord in person_frame_tracker[p_ids]:
