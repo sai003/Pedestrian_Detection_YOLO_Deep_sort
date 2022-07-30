@@ -16,6 +16,7 @@ import imutils
 from deep_sort import preprocessing
 
 INPUT_IMAGES_FOLDER = "./step_images/test/STEP-ICCV21-07/"
+OUTPUT_IMAGES_FOLDER = "./output/"
 NMS_THRESHOLD=0.2
 MIN_CONFIDENCE=0.2
 
@@ -24,6 +25,17 @@ MAX_COLORS = 200
 color_list = np.random.randint(0, 255, size=(MAX_COLORS, 3),dtype="uint8")
 
 paths_list = [deque(maxlen=30) for _ in range(9999)]
+
+FRAMES_TO_HIGHLIGHT = 50
+
+pause = False
+drawing = False
+ix = 0
+iy = 0
+ox = 0
+oy = 0
+bbox_list_per_frame = {}
+
 
 def pedestrian_detection(image, model, layer_name, personidz=0):
     (H, W) = image.shape[:2]
@@ -68,6 +80,11 @@ def start_detecting():
     counter = []
     find_objects = ['person']
     
+    individuals = set()
+    new_individuals = dict()
+    person_frame_tracker = dict()
+    last_jpg_file = ''
+    
     DEEP_SORT_MODEL_FILENAME = 'models/market1501.pb'
     encoder = create_box_encoder(DEEP_SORT_MODEL_FILENAME,batch_size=64)
     
@@ -96,6 +113,8 @@ def start_detecting():
     color = (0, 0, 255)
     
     for jpg_file_name in all_jpg_files:
+        last_jpg_file = jpg_file_name
+        
         image = cv2.imread(INPUT_IMAGES_FOLDER+jpg_file_name)
         
         image = imutils.resize(image, width=1200)
@@ -119,9 +138,13 @@ def start_detecting():
         c = []
         boxes = []
 
+
+        print("Processing file:", jpg_file_name)
+        
+        bbox_list_per_frame[jpg_file_name] = list()
         for det in detections:
             bbox = det.to_tlbr()
-            cv2.rectangle(image,(int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(255,255,255), 2)
+            #cv2.rectangle(image,(int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(255,255,255), 2)
             
         for track in tracker.tracks:
             if not track.is_confirmed() or track.time_since_update > 1:
@@ -131,6 +154,7 @@ def start_detecting():
             counter.append(int(track.track_id))
             bbox = track.to_tlbr()
             color = [int(c) for c in color_list[indexIDs[i] % len(color_list)]]
+            bbox_list_per_frame[jpg_file_name].append((int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])))
             #print(frame_index)
             #list_file.write(str(frame_index)+',')
             #list_file.write(str(track.track_id)+',')
@@ -144,9 +168,23 @@ def start_detecting():
             #print(str(track.track_id))
             #list_file.write('\n')
             #list_file.write(str(track.track_id)+',')
-            cv2.putText(image,str(track.track_id),(int(bbox[0]), int(bbox[1] -50)),0, 5e-3 * 150, (color),1)
+            cv2.putText(image, 'Person:',(int(bbox[0]), int(bbox[1] -15)),0, 5e-3 * 150, (color),1)
+            cv2.putText(image,str(track.track_id),(int(bbox[0]+90), int(bbox[1] -15)),0, 5e-3 * 150, (color),1)
             
-            cv2.putText(image, 'Person',(int(bbox[0]), int(bbox[1] -20)),0, 5e-3 * 150, (color),1)
+            """For Task 3.3"""
+            if track.track_id not in individuals:
+                individuals.add(track.track_id)
+                new_individuals[track.track_id] = FRAMES_TO_HIGHLIGHT
+                    
+            if track.track_id not in person_frame_tracker:
+                person_frame_tracker[track.track_id] = list()
+            person_frame_tracker[track.track_id].append((jpg_file_name, (int(bbox[0]),int(bbox[1]))))
+                    
+            if track.track_id in new_individuals and new_individuals[track.track_id] > 0:
+                cv2.arrowedLine(image, (int(bbox[0]-15), int(bbox[1]-15)), (int(bbox[0]-2), int(bbox[1]-2)), (255, 0, 0), 3, 8, 0, 0.35)
+                new_individuals[track.track_id] -= 1
+            # cv.arrowedLine(img, pt1, pt2, color, thickness=1, lineType=8, shift=0, tipLength=0.1)
+            """Task 3.3"""
 
             i += 1
             #bbox_center_point(x,y)
@@ -164,6 +202,14 @@ def start_detecting():
                    continue
                 thickness = int(np.sqrt(64 / float(j + 1)) * 2)
                 cv2.line(image,(paths_list[track.track_id][j-1]), (paths_list[track.track_id][j]),(color),thickness)
+               
+            '''
+            if drawing == True:
+                cv2.rectangle(image,pt1=(ix,iy),pt2=(ox,oy),color=(255,255,255),thickness=2)
+                if ix < bbox[0] < ox and ix < bbox[2] < ox and iy < bbox[1] < oy and iy < bbox[3] < oy :
+                    inbox_count += 1
+            '''
+                
         
         '''
         for i in range(len(boxs)):
@@ -176,16 +222,98 @@ def start_detecting():
         '''
         
         count = len(set(counter))
-        cv2.putText(image, "Total Pedestrian Counter: "+str(count),(int(20), int(120)),0, 5e-3 * 200, (0,255,0),2)
+        cv2.putText(image, "Unique Pedestrian Counter: "+str(count),(int(20), int(120)),0, 5e-3 * 200, (0,255,0),2)
         cv2.putText(image, "Current Pedestrian Counter: "+str(i),(int(20), int(80)),0, 5e-3 * 200, (0,255,0),2)
+        '''
+        if drawing:
+            cv2.putText(image, "Pedestrians in Given area: "+str(inbox_count),(int(20), int(40)),0, 5e-3 * 200, (0,255,0),2)
+        '''
+            
+        cv2.imwrite(OUTPUT_IMAGES_FOLDER+jpg_file_name, image)
         
+        
+        
+        
+    all_jpg_files = listdir(OUTPUT_IMAGES_FOLDER)
+    all_jpg_files = natsort.natsorted(all_jpg_files)
+    to_delete = list()
+    
+    for p_ids in person_frame_tracker:
+        if(len(person_frame_tracker[p_ids]) <= FRAMES_TO_HIGHLIGHT):
+            to_delete.append(p_ids)
+        else:
+            person_frame_tracker[p_ids] = person_frame_tracker[p_ids][-FRAMES_TO_HIGHLIGHT:]
+            
+    for p_ids in to_delete:
+        del person_frame_tracker[p_ids]
+        
+    
+    to_delete = list()
+    for p_ids in person_frame_tracker:
+        if person_frame_tracker[p_ids][-1][0] == last_jpg_file: to_delete.append(p_ids)
+    for p_ids in to_delete:
+        del person_frame_tracker[p_ids]
+        
+    frame_coordinates = dict()
+    for p_ids in person_frame_tracker:
+        for file, coord in person_frame_tracker[p_ids]:
+            if file not in frame_coordinates:
+                frame_coordinates[file] = list()
+            frame_coordinates[file].append(coord)
+            
+    for jpg_file_name in all_jpg_files:
+        image = cv2.imread(OUTPUT_IMAGES_FOLDER+jpg_file_name)
+        
+        if jpg_file_name in frame_coordinates:
+            for coord in frame_coordinates[jpg_file_name]:
+                cv2.arrowedLine(image, (coord[0]-15, coord[1]-15), (coord[0]-2, coord[1]-2), (0, 0, 255), 3, 8, 0, 0.35)
+                
+        inbox_count = 0
+                
+        def draw(event,x,y,flags,params):
+            global drawing,ix,iy,ox,oy,pause
+            if pause == True:
+                if(event==1):
+                    ix = x
+                    iy = y
+                '''
+                if(event==0):
+                    if(drawing==True):
+                        cv2.rectangle(image,pt1=(ix,iy),pt2=(x,y),color=(255,255,255),thickness=1)
+                '''
+                if(event==4):
+                    drawing = True
+                    ox, oy = x,y
+                    cv2.rectangle(image,pt1=(ix,iy),pt2=(ox,oy),color=(255,255,255),thickness=2)
+                
+        cv2.namedWindow("Detection")
+        cv2.setMouseCallback("Detection",draw)
+        
+        
+        key = cv2.waitKey(30)
+        
+        if key & 0xFF == ord('p'):
+            global pause,drawing
+            pause = True
+            drawing = False
+        
+        if drawing == True:
+            cv2.rectangle(image,pt1=(ix,iy),pt2=(ox,oy),color=(255,255,255),thickness=2)
+            for bbox in bbox_list_per_frame[jpg_file_name]:
+                if ix < bbox[0] < ox and ix < bbox[2] < ox and iy < bbox[1] < oy and iy < bbox[3] < oy :
+                    inbox_count += 1
+            cv2.putText(image, "Pedestrians in Given area: "+str(inbox_count),(int(20), int(40)),0, 5e-3 * 200, (0,255,0),2)
         
         cv2.imshow("Detection",image)
-
-        key = cv2.waitKey(30)
-        if key == 27:
-            break
-        
+        while(pause):
+            cv2.imshow("Detection",image)
+            key = cv2.waitKey(30)
+            if key & 0xFF == ord('p'):
+                pause = not pause
+            
+        if key & 0xFF == ord('q'):
+                break
+                
 
 if __name__ == '__main__':
     
