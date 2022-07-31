@@ -15,8 +15,20 @@ from PIL import Image
 import imutils
 from deep_sort import preprocessing
 
-INPUT_IMAGES_FOLDER = "./step_images/test/STEP-ICCV21-07/"
+#INPUT_IMAGES_FOLDER = "./step_images/STEP-ICCV21-02/" # Perf not good
+#MASK_IMAGES_FOLDER = "./step_images/0002/"
+#SHOW_PERFORMANCE = 1
+
+#INPUT_IMAGES_FOLDER = "./step_images/test/STEP-ICCV21-07/"
+#MASK_IMAGES_FOLDER = "./step_images/test/STEP-ICCV21-07/" # just adding this variable so that code doesn't give error
+#SHOW_PERFORMANCE = 0
+
+INPUT_IMAGES_FOLDER = "./step_images/STEP-ICCV21-09/"
+MASK_IMAGES_FOLDER = "./step_images/0009/"
+SHOW_PERFORMANCE = 1
+
 OUTPUT_IMAGES_FOLDER = "./output/"
+
 NMS_THRESHOLD=0.2
 MIN_CONFIDENCE=0.2
 
@@ -97,8 +109,8 @@ def start_detecting():
     labelsPath = "class.names"
     LABELS = open(labelsPath).read().strip().split("\n")
     
-    weights_path = "./models/yolov4-tiny.weights"
-    config_path = "./models/yolov4-tiny.cfg"
+    weights_path = "./models/yolov4.weights"
+    config_path = "./models/yolov4.cfg"
     
     model = cv2.dnn.readNetFromDarknet(config_path, weights_path)
     '''
@@ -112,12 +124,19 @@ def start_detecting():
     font = cv2.FONT_HERSHEY_SIMPLEX
     color = (0, 0, 255)
     
+    if SHOW_PERFORMANCE == 1:
+        mask_person_ids = list()
+        sum_calculated_frame_count = 0.0
+        sum_actual_frame_count = 0.0
+    
     for jpg_file_name in all_jpg_files:
         last_jpg_file = jpg_file_name
         
         image = cv2.imread(INPUT_IMAGES_FOLDER+jpg_file_name)
         
-        image = cv2.imread(INPUT_IMAGES_FOLDER+jpg_file_name)
+        if SHOW_PERFORMANCE == 1:
+            mask_file = jpg_file_name.split('.')[0]+'.png'
+            mask_image = cv2.imread(MASK_IMAGES_FOLDER+mask_file) 
             
         image = imutils.resize(image, width=1200)
         boxs, confidences, centroid = pedestrian_detection(image, model, layer_name,
@@ -142,6 +161,8 @@ def start_detecting():
 
 
         print("Processing file:", jpg_file_name)
+        if SHOW_PERFORMANCE == 1: 
+            print("\nMask file:", mask_file)
         
         bbox_list_per_frame[jpg_file_name] = list()
         for det in detections:
@@ -229,10 +250,28 @@ def start_detecting():
         if drawing:
             cv2.putText(image, "Pedestrians in Given area: "+str(inbox_count),(int(20), int(40)),0, 5e-3 * 200, (0,255,0),2)
         '''
+        if SHOW_PERFORMANCE == 1:
+            print("Calculated frame count:", i)
+            actual_frame_count = len(np.unique(mask_image[:, :, 0])) - 1 # subtracting 1 due to background label ID
+            print("Actual frame count:", actual_frame_count)        
+            
+            sum_calculated_frame_count += i
+            sum_actual_frame_count += actual_frame_count
+            
+            print("Calculated total count:", count)
+            mask_person_ids.extend(np.unique(mask_image[:, :, 0]))
+            mask_person_ids = list(set(mask_person_ids))
+            print("Actual total count:",len(mask_person_ids)-1) # subtracting 1 due to background label ID
             
         cv2.imwrite(OUTPUT_IMAGES_FOLDER+jpg_file_name, image)
         
-        
+    if SHOW_PERFORMANCE == 1:
+        print()
+        print("Final Performance Metrics:")
+        print("Per frame pedestrian detection efficiency = {:.2f}%".format(100*sum_calculated_frame_count/sum_actual_frame_count))
+        print("Calculated total count:", count)
+        print("Actual total count:",len(mask_person_ids)-1) # subtracting 1 due to background label ID
+        print("Calculated to Actual Total Count Ratio =", float(count)/float(len(mask_person_ids)-1))
         
         
     all_jpg_files = listdir(OUTPUT_IMAGES_FOLDER)
