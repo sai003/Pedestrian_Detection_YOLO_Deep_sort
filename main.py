@@ -16,18 +16,32 @@ from deep_sort.tracker import Tracker
 from deep_sort.detection import Detection
 
 
-#INPUT_IMAGES_FOLDER = "./step_images/STEP-ICCV21-02/" # Perf not good
-#MASK_IMAGES_FOLDER = "./step_images/0002/"
-#SHOW_PERFORMANCE = 1
+"""
+We tested this model on two provided training datasets (with panoptic images)
+and one test dataset (without any panoptic images)
+Uncomment ONLY one of the three options below to select the dataset on which
+you want to run this model. Keep the other two options commented.
 
-INPUT_IMAGES_FOLDER = "./step_images/test/STEP-ICCV21-07/"
-MASK_IMAGES_FOLDER = "./step_images/test/STEP-ICCV21-07/" # just adding this variable so that code doesn't give error
-SHOW_PERFORMANCE = 0
+Also, we are not uploading any images as part of the submission.
+So, please copy the actual images and their corresponding panoptic images
+to the folders mentioned below.
+"""
+# option 1
+INPUT_IMAGES_FOLDER = "./step_images/STEP-ICCV21-02/"
+MASK_IMAGES_FOLDER = "./step_images/0002/"
+SHOW_PERFORMANCE = 1
 
+# option 2
+#INPUT_IMAGES_FOLDER = "./step_images/test/STEP-ICCV21-07/"
+#MASK_IMAGES_FOLDER = "./step_images/test/STEP-ICCV21-07/" # just adding this variable so that code doesn't give error
+#SHOW_PERFORMANCE = 0
+
+# option 3
 #INPUT_IMAGES_FOLDER = "./step_images/STEP-ICCV21-09/"
 #MASK_IMAGES_FOLDER = "./step_images/0009/"
 #SHOW_PERFORMANCE = 1
 
+# all the output images will be stored in this location
 OUTPUT_IMAGES_FOLDER = "./output/"
 
 NMS_THRESHOLD=0.2
@@ -49,7 +63,8 @@ color_list = np.random.randint(0, 255, size=(MAX_COLORS, 3),dtype="uint8")
 
 paths_list = [deque(maxlen=30) for _ in range(9999)]
 
-FRAMES_TO_HIGHLIGHT = 50
+FRAMES_TO_HIGHLIGHT = 50 # this indicates how many frames to highlight for
+                         # pedestrians entering or leaving the scene
 
 pause = False
 drawing = False
@@ -59,7 +74,13 @@ ox = 0
 oy = 0
 bbox_list_per_frame = {}
 
-
+"""
+This function takes an image as its input.
+It processes the image and returns the box coordinates, confidence scores
+and centroids for each detected bounding box.
+This function was inspired by the code at the below link.
+https://pyimagesearch.com/2018/11/12/yolo-object-detection-with-opencv/
+"""
 def pedestrian_detection(image, model, layer_name, personidz=0):
     (H, W) = image.shape[:2]
 
@@ -94,7 +115,10 @@ def pedestrian_detection(image, model, layer_name, personidz=0):
     return boxes, confidences, centroids
 
 
-#calculate neared person
+"""
+This is the function which determines if two pedestrians are close enough
+to get classified as part of the same group.
+"""
 def nearToPerson(person1, person2):
 	yRatio = 1.5	#y value ratio
 	distThres = 0.6 #threshold of distance ratio
@@ -109,6 +133,10 @@ def nearToPerson(person1, person2):
 
 	return False
 
+"""
+This function checks all the pedestrians, calculates distances between them,
+and classify them as individuals or grouped pedestrians.
+"""
 def classify_groups(results):
 	processed_numbers = []
 	group_array = []
@@ -147,7 +175,10 @@ def classify_groups(results):
 
 	return nearMatrix
 
-
+"""
+This is the main function which calls all the functions for pedestrian detection, 
+tracking and grouping.
+"""
 def start_detecting():
     max_cosine_distance = 0.3
     nn_budget = None
@@ -171,8 +202,12 @@ def start_detecting():
     labelsPath = "class.names"
     LABELS = open(labelsPath).read().strip().split("\n")
     
+    # Uncomment any one of the option below to use either of yolov4 or tiny models
+    # option 1: Use yolov4 tiny model
     weights_path = "./models/yolov4-tiny.weights"
     config_path = "./models/yolov4-tiny.cfg"
+    
+    # option 2: USe original yolov4 model
     #weights_path = "./models/yolov4.weights"
     #config_path = "./models/yolov4.cfg"
     
@@ -195,6 +230,7 @@ def start_detecting():
         sum_actual_frame_count = 0.0
     
     for jpg_file_name in all_jpg_files:
+        print()
         print("Processing file:", jpg_file_name)
         last_jpg_file = jpg_file_name
         
@@ -225,10 +261,6 @@ def start_detecting():
         boxes = []
         results = []
 
-        
-        if SHOW_PERFORMANCE == 1: 
-            print("\nMask file:", mask_file)
-        
         bbox_list_per_frame[jpg_file_name] = list()
             
         for track in tracker.tracks:
@@ -243,7 +275,6 @@ def start_detecting():
             
             results.append((1.0, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])) ))
             
-            """For Task 3.3"""
             if track.track_id not in individuals:
                 individuals.add(track.track_id)
                 new_individuals[track.track_id] = FRAMES_TO_HIGHLIGHT
@@ -255,11 +286,9 @@ def start_detecting():
             if track.track_id in new_individuals and new_individuals[track.track_id] > 0:
                 cv2.arrowedLine(image, (int(bbox[0]-15), int(bbox[1]-15)), (int(bbox[0]-2), int(bbox[1]-2)), (255, 255, 255), 3, 8, 0, 0.35)
                 new_individuals[track.track_id] -= 1
-            """Task 3.3"""
+            
             i += 1
-            #bbox_center_point(x,y)
             center = (int(((bbox[0])+(bbox[2]))/2),int(((bbox[1])+(bbox[3]))/2))
-            #track_id[center]
     
             paths_list[track.track_id].append(center)
     
