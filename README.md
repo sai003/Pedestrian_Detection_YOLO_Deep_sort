@@ -27,3 +27,9 @@ and then it will show the output images in a loop.
 Open Terminal and proceed to the "Pedestrian_Detection_YOLO_Deep_sort" folder
 and then install all the dependencies by running: "pip install -r requirements.txt"
 and then run the code by: "python main.py"
+
+# Instructions
+
+While the output video is running, please use "P" button on your keyboard to pause or unpause the video
+The drawing of user given box can be done while the video is paused.
+Please press the button "Q" on your keyboard to terminate the output video.
